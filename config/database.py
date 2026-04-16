@@ -2,6 +2,7 @@
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 from config.settings import DATABASE_PATH
 
@@ -26,7 +27,7 @@ def initialize_database(db_path=DATABASE_PATH):
 def insert_raw_jobs(jobs, db_path=DATABASE_PATH):
     """Insert raw job postings into the raw_jobs table.
 
-    Duplicate job URLs are ignored, which makes the mock crawler safe to run
+    Duplicate job URLs are ignored, which makes crawling safe to run
     multiple times while developing.
     """
     with get_connection(db_path) as conn:
@@ -56,6 +57,15 @@ def insert_raw_jobs(jobs, db_path=DATABASE_PATH):
         )
 
 
+def fetch_all_raw_jobs(db_path=DATABASE_PATH) -> list[dict[str, Any]]:
+    """Fetch all raw jobs ordered by newest first."""
+    with get_connection(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM raw_jobs ORDER BY id DESC").fetchall()
+
+    return [dict(row) for row in rows]
+
+
 def count_rows(table_name, db_path=DATABASE_PATH):
     """Return the number of rows in a table.
 
@@ -70,4 +80,3 @@ def count_rows(table_name, db_path=DATABASE_PATH):
     with get_connection(db_path) as conn:
         cursor = conn.execute(f"SELECT COUNT(*) FROM {table_name}")
         return cursor.fetchone()[0]
-

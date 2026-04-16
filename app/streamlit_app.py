@@ -16,7 +16,7 @@ import streamlit as st
 
 
 # Add the project root to Python's import path.
-# This lets Streamlit import modules from ai/, crawler/, and db/.
+# This lets Streamlit import modules from ai/, crawler/, and config/.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
@@ -24,7 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from ai.analyze_jobs import analyze_job
 from ai.match_profile import match_profile_to_job
 from crawler.mock_crawler import collect_mock_jobs
-from db.database import create_tables, fetch_all_raw_jobs, insert_raw_job
+from config.database import fetch_all_raw_jobs, initialize_database, insert_raw_jobs
 
 
 # User profile used for the MVP matching logic.
@@ -50,14 +50,13 @@ def load_jobs() -> pd.DataFrame:
 
     If SQLite has no raw jobs yet, mock jobs are inserted first.
     """
-    create_tables()
+    initialize_database()
 
     raw_jobs = fetch_all_raw_jobs()
 
     # Use sample data when the database is empty.
     if not raw_jobs:
-        for job in collect_mock_jobs():
-            insert_raw_job(job)
+        insert_raw_jobs(collect_mock_jobs())
         raw_jobs = fetch_all_raw_jobs()
 
     dashboard_rows = []
