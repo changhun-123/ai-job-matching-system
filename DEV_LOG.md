@@ -48,3 +48,23 @@
 * Saramin 상세 페이지 크롤링으로 job_text 본문 확보
 * LLM 기반 공고 분석 기능 연결
 * 개인 프로필과의 적합도 매칭 로직 고도화
+
+## 2026-04-16
+
+### 작업 내용
+
+* DB 접근 모듈을 `config/database.py` 기준으로 통일
+* Streamlit 앱이 `db/database.py` 대신 `config/database.py`를 사용하도록 변경
+* Saramin 크롤러를 개선해 리스트 수집 후 상세 페이지 본문(`job_text`) 추출 기능 추가
+* 메인 실행 흐름에서 mock + Saramin 크롤링 결과를 모두 `raw_jobs`에 저장하도록 확장
+* `test_crawler.py`에서 CSV 저장뿐 아니라 SQLite `raw_jobs` 저장까지 수행하도록 보완
+
+### 확인 사항
+
+* Saramin 상세 페이지 접근 실패 시에도 fallback 텍스트(공고 제목)로 저장되도록 처리
+* `INSERT OR IGNORE`를 유지해 동일 URL 중복 저장 방지
+
+### 다음 할 일
+
+* Saramin 상세 페이지 구조 변경에 대비한 selector 다중화/검증 로직 고도화
+* `analyzed_jobs`, `matched_jobs`까지 실제 DB 적재 파이프라인 연결
