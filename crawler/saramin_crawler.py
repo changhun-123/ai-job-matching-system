@@ -203,6 +203,20 @@ def extract_iframe_job_html(
         return ""
 
 
+def extract_iframe_body_text(iframe_html: str) -> str:
+    """Extract all text from iframe page body."""
+    if not iframe_html:
+        return ""
+
+    iframe_soup = BeautifulSoup(iframe_html, "html.parser")
+    body = iframe_soup.select_one("body")
+
+    if not body:
+        return ""
+
+    return normalize_text(body.get_text(" ", strip=True))
+
+
 def collect_saramin_jobs(keyword: str = "데이터 분석", limit: int = 20) -> list[dict[str, str]]:
     """Collect Saramin jobs and include detail-page body text.
 
@@ -255,8 +269,12 @@ def collect_saramin_jobs(keyword: str = "데이터 분석", limit: int = 20) -> 
             )
 
             if iframe_html:
-                iframe_soup = BeautifulSoup(iframe_html, "html.parser")
-                job_text = extract_job_text(iframe_soup, fallback_title=title)
+                iframe_body_text = extract_iframe_body_text(iframe_html)
+                if iframe_body_text:
+                    job_text = iframe_body_text
+                else:
+                    iframe_soup = BeautifulSoup(iframe_html, "html.parser")
+                    job_text = extract_job_text(iframe_soup, fallback_title=title)
             else:
                 job_text = extract_job_text(detail_soup, fallback_title=title)
         except requests.RequestException:
