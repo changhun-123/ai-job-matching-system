@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -46,6 +46,13 @@ def fetch_soup(url: str, headers: dict[str, str]) -> BeautifulSoup:
     response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
     response.raise_for_status()
     return BeautifulSoup(response.text, "html.parser")
+
+
+def fetch_html(url: str, headers: dict[str, str]) -> str:
+    """Download raw HTML for pages that should be stored as-is."""
+    response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
+    return response.text
 
 
 
@@ -169,6 +176,33 @@ def extract_job_text(detail_soup: BeautifulSoup, fallback_title: str) -> str:
     return fallback_title
 
 
+def extract_iframe_job_html(
+    detail_soup: BeautifulSoup, headers: dict[str, str], page_url: str
+) -> str:
+    """Extract full HTML from Saramin relay iframe if present."""
+    iframe = (
+        detail_soup.select_one("iframe#iframe_content_0")
+        or detail_soup.select_one("iframe#iframe_content")
+        or detail_soup.select_one("iframe.iframe_content")
+        or detail_soup.select_one("iframe[src*='/zf_user/jobs/relay/']")
+    )
+
+    if not iframe:
+        return ""
+
+    iframe_src = iframe.get("src", "").strip()
+
+    if not iframe_src:
+        return ""
+
+    iframe_url = urljoin(page_url, iframe_src)
+
+    try:
+        return fetch_html(iframe_url, headers=headers)
+    except requests.RequestException:
+        return ""
+
+
 def collect_saramin_jobs(keyword: str = "데이터 분석", limit: int = 20) -> list[dict[str, str]]:
     """Collect Saramin jobs and include detail-page body text.
 
@@ -212,10 +246,19 @@ def collect_saramin_jobs(keyword: str = "데이터 분석", limit: int = 20) -> 
         deadline = extract_deadline(item)
 
         job_text = title
+        iframe_html = ""
 
         try:
             detail_soup = fetch_soup(url, headers=headers)
-            job_text = extract_job_text(detail_soup, fallback_title=title)
+            iframe_html = extract_iframe_job_html(
+                detail_soup, headers=headers, page_url=url
+            )
+
+            if iframe_html:
+                iframe_soup = BeautifulSoup(iframe_html, "html.parser")
+                job_text = extract_job_text(iframe_soup, fallback_title=title)
+            else:
+                job_text = extract_job_text(detail_soup, fallback_title=title)
         except requests.RequestException:
             # Keep fallback title text when a detail page is unavailable.
             pass
@@ -228,6 +271,7 @@ def collect_saramin_jobs(keyword: str = "데이터 분석", limit: int = 20) -> 
                 "deadline": deadline,
                 "url": url,
                 "job_text": job_text,
+                "job_html": iframe_html,
             }
         )
 
